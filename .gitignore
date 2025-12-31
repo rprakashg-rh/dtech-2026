@@ -1,0 +1,5 @@
+# skip ansible vault file
+playbooks/vars/secrets.yml
+
+# skip inventory file
+playbooks/inventory
