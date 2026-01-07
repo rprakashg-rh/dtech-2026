@@ -2,6 +2,9 @@
 retries: 100
 delay: 20
 
+min_disks: 4
+min_size_gb: 500
+
 # blueprint details
 builder_blueprint_name: grid-platform-base
 builder_blueprint_description: "Base RHEL 9.6 image used to deploy grid platform for utilities"
@@ -29,6 +32,10 @@ builder_compose_pkgs:
 - cockpit
 - cockpit-machines
 - cockpit-podman
+- cockpit-storaged
+- cockpit-networkmanager
+- cockpit-selinux
+- cockpit-sosreport
 - cloud-init
 - cloud-utils-growpart
 - unzip
@@ -49,12 +56,17 @@ builder_compose_pkgs:
 - realtime-tests
 - dnf-plugins-core
 - python3-dnf-plugin-versionlock #versionlock
+- cryptsetup
 - corosync
 - pacemaker
 - systemd-networkd
 - systemd-resolved
 - systemd-timesyncd
-- bridge-utils 
+- bridge-utils
+- pcs 
+- pacemaker 
+- fence-agents-all
+- cabextract
 builder_compose_customizations:
   services:
     enabled: ["cockpit.socket", "firewalld"]
@@ -63,3 +75,64 @@ builder_compose_customizations:
       enabled: ["http", "https", "ssh", "cockpit"]
       disabled: ["telnet"]
     ports: ["9090:tcp", "22:tcp"]
+
+# Kickstart customizations
+builder_kickstart_pre: |
+  {{ lookup('ansible.builtin.template', 'ks-pre.j2') }}
+
+builder_kickstart_post:
+- systemctl enable libvirtd
+- systemctl enable cockpit.socket
+- # xfs tunning for snapshot efficiency
+- mkfs.xfs -f -m reflink=1 /dev/vg_kvm/lv_images
+- # Optimize IO scheduler for RAID
+- for dev in /sys/block/md*/queue/scheduler;do
+- echo none > "$dev" 2>/dev/null || true
+- done
+- # Optimize xfs mount options for qcow2
+- sed -i '/libvirt\/images/s/defaults/defaults,noatime,nodiratime/' /etc/fstab
+- sed -i '/backups/s/defaults/defaults,noatime,nodiratime/' /etc/fstab
+
+builder_kickstart_options:
+- lang en_US.UTF-8
+- keyboard us
+- timezone America/Los_Angeles --utc
+- text
+- liveimg --url file:///run/install/repo/liveimg.tar.gz
+- zerombr # Clear the MBR/GPT on all detected disks
+- bootloader --location=mbr --boot-drive=sda
+- clearpart --all --initlabel # Clears all partitions on sda and initializes the disk label
+- ignoredisk --only-use=sda,sdb,sdc,sdd
+
+- # ------------------------------------------------------------
+- # /boot/efi (unencrypted)
+- # ------------------------------------------------------------
+- part /boot/efi --fstype=efi --size=600 --ondisk=sda
+- part /boot --fstype=ext4 --size=4096 --ondisk=sda
+- # -------------------------------------------------------------
+- # RAID10 for VM Storage
+- # -------------------------------------------------------------
+- part raid.pv.1 --grow --ondisk=sda
+- part raid.pv.2 --grow --ondisk=sdb
+- part raid.pv.3 --grow --ondisk=sdc
+- part raid.pv.4 --grow --ondisk=sdd
+- raid md0 --level=10 --device=md0 raid.pv.1 raid.pv.2 raid.pv.3 raid.pv.4
+
+- # Create VG with LUKS encryption
+- volgroup vg_kvm --encrypted --passphrase={{ passphrase }} md0
+- # ---------------------------------------------------------------
+- # Host OS Volumes
+- # ---------------------------------------------------------------
+- logvol / --vgname=vg_kvm --name=lv_root --fstype=xfs --size=150000
+- logvol /home --vgname=vg_kvm --name=lv_home --fstype=xfs --size=200000
+- logvol swap --vgname=vg_kvm --name=lv_swap --recommended
+- # ---------------------------------------------------------------
+- # VM Storage and backup (qcow2 disks)
+- # ---------------------------------------------------------------
+- logvol /var/lib/libvirt/images --vgname=vg_kvm --name=lv_images --fstype=xfs --useexisting --grow
+- logvol /backups --vgname=vg_kvm --name=lv_backups --fstype=xfs --size=500000
+- # ---------------------------------------------------------------
+- # Setup networking
+- # ---------------------------------------------------------------
+- network --bootproto=dhcp --activate
+- reboot --eject

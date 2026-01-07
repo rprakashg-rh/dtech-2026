@@ -1,0 +1,21 @@
+# This playbook automates building of ISO images to be used to deploy Grid platforms
+---
+- name: Automate building ISO image for deploying grid platforms
+  hosts: imagebuilder
+  gather_facts: yes
+
+  tasks:
+  - name: Load secrets from ansible vault
+    ansible.builtin.include_vars:
+      file: "./vars/secrets.yml"
+  - name: Create image installer
+    ansible.builtin.import_role:
+      name: rprakashg.vpac.create_image_installer
+  - name: Create iso with custom kickstart
+    ansible.builtin.import_role:
+      name: rprakashg.vpac.create_iso
+    # encomment lines below if you just want to generate a new kickstart 
+    # and create iso with new kickstart using an existing image installer compose job that completed
+    # successfully  
+    #vars:
+    #  compose_job_id: bc4d17cd-be8b-47fd-921b-110be462ef96 
