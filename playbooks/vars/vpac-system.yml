@@ -7,7 +7,7 @@ min_size_gb: 500
 
 # blueprint details
 builder_blueprint_name: grid-platform-base
-builder_blueprint_description: "Base RHEL 9.6 image used to deploy grid platform for utilities"
+builder_blueprint_description: "Base RHEL 9.7 image used to deploy grid platform for utilities"
 builder_blueprint_distro: "rhel-9"
 builder_compose_pkgs:
 - ansible-core
@@ -50,6 +50,7 @@ builder_compose_pkgs:
 - swtpm-tools
 - dosfstools
 - edk2-ovmf #uefi firmware for windows 11 install
+- intel-cmt-cat
 - kernel-rt
 - kernel-rt-kvm
 - tuned-profiles-nfv-host
@@ -102,8 +103,7 @@ builder_kickstart_options:
 - zerombr # Clear the MBR/GPT on all detected disks
 - bootloader --location=mbr --boot-drive=sda
 - clearpart --all --initlabel # Clears all partitions on sda and initializes the disk label
-- ignoredisk --only-use=sda,sdb,sdc,sdd
-
+- ignoredisk --only-use=sda,nvme0n1,nvme1n1,nvme2n1,nvme3n1
 - # ------------------------------------------------------------
 - # /boot/efi (unencrypted)
 - # ------------------------------------------------------------
@@ -112,14 +112,13 @@ builder_kickstart_options:
 - # -------------------------------------------------------------
 - # RAID10 for VM Storage
 - # -------------------------------------------------------------
-- part raid.pv.1 --grow --ondisk=sda
-- part raid.pv.2 --grow --ondisk=sdb
-- part raid.pv.3 --grow --ondisk=sdc
-- part raid.pv.4 --grow --ondisk=sdd
-- raid md0 --level=10 --device=md0 raid.pv.1 raid.pv.2 raid.pv.3 raid.pv.4
-
+- part raid.pv.1 --grow --ondisk=nvme0n1
+- part raid.pv.2 --grow --ondisk=nvme1n1
+- part raid.pv.3 --grow --ondisk=nvme2n1
+- part raid.pv.4 --grow --ondisk=nvme3n1
+- raid pv.01 --level=10 --device=mdroot raid.pv.1 raid.pv.2 raid.pv.3 raid.pv.4
 - # Create VG with LUKS encryption
-- volgroup vg_kvm --encrypted --passphrase={{ passphrase }} md0
+- volgroup vg_kvm --encrypted --passphrase={{ passphrase }} pv.01
 - # ---------------------------------------------------------------
 - # Host OS Volumes
 - # ---------------------------------------------------------------

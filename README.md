@@ -2,9 +2,11 @@
 Repository contains all artifacts used to build dtech-2026 demo setup
 
 ## Pre-flight steps
+Obtain an Open AWS account in [demo.redhat.com](https://demo.redhat.com) and provision an EC2 host which will be used for building customized RHEL system image to be used for provisioning the Advantech ECU579 host.
+
 Install [this](https://github.com/rprakashg/vpac) ansible collection by running command below
 
-Create an ansible inventory file and add snippet below
+Create an ansible inventory file and add snippet below, replace with specific parameters 
 
 ```yaml
 ---

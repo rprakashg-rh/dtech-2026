@@ -1,0 +1,39 @@
+rt_config:
+  non_rt_cores_cat: f
+  non_rt_cache_cat: "0x600"
+  rt_cache: "0x1ff"
+  rt_cores: 4-7
+  cpumask: 400
+
+tuned:
+  profile: realtime-virtual-host
+  rt_cores: 4-7
+
+networking:
+  stationbus:
+    nic: ens1f2
+    ip4: "192.168.20.20/24"
+    gw4: 192.168.20.1
+    dns4: 8.8.8.8
+  processbus:
+    nic: "ens1f1"
+
+ssc600_vm:
+  name: ssc600-1
+  path: /var/lib/libvirt/images/ssc600-1
+  core0: 7
+  core1: 6
+  core2: 5
+  core3: 4
+  core_qemu: 8-9
+  pb_nic: "ens1f1"
+
+ssc600_ptp:
+  status_dir: /home/libvirt-local/ptp/
+  socket: /var/run/timemaster/ptp4l.0.socket
+  ptp4l_options: "-l 5 -A --clientOnly=1 --step_threshold=0.1"
+
+ssc600_bundle:
+  file: SSC600_SW_KVM-1.5.1.cab
+  path: /home/admin/software
+  extracted_path: /home/admin/software/abb
